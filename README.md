@@ -1,6 +1,6 @@
 # WebGopher
  
-WebGopher
+WebGopher  
 Because we like to collect header, SSL/TLS, cert, and cookie flag information in a  
 web application assessment but no one wants to do it...this tool fetches standard  
 web assessment information for a list of URLs provided in an input file. The input  
