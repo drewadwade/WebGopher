@@ -71,16 +71,8 @@ def getHeaders(URL):
             STS = response.headers['Strict-Transport-Security']
     except:
         BAD = 1
-    
-    CSP = "Content-Security-Policy: " + CSP
-    XFO = "X-Frame-Options: " + XFO
-    XSS = "X-XSS-Protection: " + XSS
-    XCTO = "X-Content-Type-Options: " + XCTO
-    RP = "Referrer-Policy: " + RP
-    PP = "Permissions-Policy: " + PP
-    STS = "Strict-Transport-Security: " + STS
-
-    Headers = [CSP,XFO,XSS,XCTO,RP,PP,STS,BAD]
+       
+    Headers = [URL,CSP,XFO,XSS,XCTO,RP,PP,STS,BAD]
     return Headers
 
 
@@ -97,7 +89,7 @@ def getTLS(URL,driver):
     TLS = ""
     
     for table in tables:
-        TLS += " " + (table.text).replace('\n', ' ').replace('\r', '')
+        TLS += URL + "led " + (table.text).replace('\n', ' ').replace('\r', '')
 
     TLS = TLS.split("led")
     TLS.pop()
@@ -107,18 +99,17 @@ def getTLS(URL,driver):
 
 def getCert(URL):
 
-    driver.get('https://www.sslshopper.com/ssl-checker.html#hostname='+URL)
+    driver.get('https://www.sslshopper.com/ssl-checker.html?hostname='+URL)
 
     element = WebDriverWait(driver, 20).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "checker_messages"))
+        EC.presence_of_element_located((By.CLASS_NAME, "checker_certs"))
     )
 
     try:
         failed = driver.find_element(By.CLASS_NAME, "failed")
         if failed:
             table = driver.find_element(By.CLASS_NAME, "checker_messages")
-  
-        Cert = table.text
+            Cert = table.text
     except: 
         Cert = "Certificate OK"
     
@@ -168,54 +159,95 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 # Output to file
 try:    
     output_file=open("./reportfile.txt",'a')
+    
+    
+    output_file.write("---SITES NOT FOUND---\n")
+    
+    Headers = []
+    liveURLs = []
+    empty = 1
+    
     for URL in URLs:
-        output_file.write("###############################################\n")
-        output_file.write(URL)
-        output_file.write("\n###############################################\n")
-        Headers = getHeaders(URL) 
-        if Headers[7] == 0:
-            output_file.write("---SECURITY HEADERS---\n")
-            output_file.write(Headers[0])
-            output_file.write("\n")
-            output_file.write(Headers[1])
-            output_file.write("\n")
-            output_file.write(Headers[2])
-            output_file.write("\n")
-            output_file.write(Headers[3])
-            output_file.write("\n")
-            output_file.write(Headers[4])
-            output_file.write("\n")
-            output_file.write(Headers[5])
-            output_file.write("\n")
-            output_file.write(Headers[6])
-            output_file.write("\n\n")
-            if "https" in str(URL):
-                output_file.write("-- SSL/TLS VERSIONS --\n")
-                TLS = getTLS(URL,driver)
-                for line in TLS:
-                    line = line.strip()+"led\n"
-                    if "deprecated" in line and "enabled" in line:
-                        line = "**" + line
-                    elif "deprecated" not in line and "disabled" in line:                   
-                        line = "**" + line
-                    output_file.write(line)
-                output_file.write("\n")
-                output_file.write("---CERTIFICATE CHECK---\n")
-                Cert = getCert(URL)
-                output_file.write(Cert)
-                output_file.write("\n\n")
-            Cookies = getCookies(URL)    
-            if Cookies:
-                output_file.write("---COOKIE SECURITY FLAGS---\n")
-                for Cookie in Cookies:
-                    output_file.write(Cookie)
-                output_file.write("\n")
-            
+        SiteHeaders = getHeaders(URL) 
+        if SiteHeaders[8] == 0:
+            Headers += [SiteHeaders]
+            empty = 0
+            liveURLs += [URL]
         else:
-            output_file.write("Site not found.\n\n")
-        output_file.write("\n\n")
-
-    driver.quit()
+            output_file.write("  ")
+            output_file.write(URL)
+            output_file.write("\n")
+    
+    if empty == 1:
+         output_file.write("none\n")
+    
+    output_file.write("\n")
+                
+    output_file.write("---MISSING SECURITY HEADERS---\n")
+    
+    sec_headers = ["Content-Security-Policy:","X-Frame-Options:","X-XSS-Protection:","X-Content-Type-Options:","Referrer-Policy:","Permissions-Policy:","Strict-Transport-Security:"]
+    
+    for sec_header in sec_headers:
+        title = "Missing " + sec_header
+        output_file.write(title)
+        output_file.write("\n")
+        for item in range(0,len(Headers)):
+            if Headers[item][8] == 0: 
+                if "**MISSING" in Headers[item][sec_headers.index(sec_header)+1]:
+                    output_file.write("  ")
+                    output_file.write(Headers[item][0])
+                    output_file.write("\n")
+        output_file.write("\n")
+    
+    output_file.write("---UNSAFE SSL/TLS VERSIONS---\n")
+    
+    TLS_versions = ["TLS 1.3 Disabled","TLS 1.2 Disabled","TLS 1.1 Enabled","TLS 1.0 Enabled","SSLv3 Enabled","SSLv2 Enabled"]
+    TLS_results = []
+    
+    for URL in liveURLs:
+        if "https" in str(URL):
+            TLS = getTLS(URL,driver)
+            TLS_results += [TLS]
+        
+    for TLS_version in TLS_versions:
+        output_file.write(TLS_version)
+        output_file.write("\n")
+        
+        for item in range(0,len(TLS_results)):
+            result = TLS_results[item][TLS_versions.index(TLS_version)+1]
+            if "deprecated" in result and "enab" in result:
+                output_file.write("  ")
+                output_file.write(TLS_results[item][0])
+                output_file.write("\n")
+            elif "deprecated" not in result and "disab" in result:                   
+                output_file.write("  ")
+                output_file.write(TLS_results[item][0])
+                output_file.write("\n")
+        output_file.write("\n")
+                
+            
+    output_file.write("---CERTIFICATE ISSUES---\n")
+    
+    for URL in liveURLs:
+        if "https" in str(URL):
+            CertIssue = getCert(URL)
+            if "Certificate OK" not in CertIssue:
+                output_file.write(URL)
+                output_file.write("\n")
+    
+    output_file.write("\n")
+    
+    output_file.write("---MISSING COOKIE SECURITY FLAGS---\n")
+    for URL in liveURLs:
+        Cookies = getCookies(URL)    
+        if Cookies:
+            output_file.write(URL)
+            output_file.write("\n")
+            for Cookie in Cookies:
+                output_file.write(Cookie)
+            output_file.write("\n")
+        
+    driver.close()
     output_file.close()
     print("Success! Your report has been saved to: ./reportfile.txt")
 except:     
