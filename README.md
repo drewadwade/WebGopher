@@ -11,4 +11,4 @@ REQUIRES: ChromeDriver - https://sites.google.com/a/chromium.org/chromedriver/do
                        - Add to PATH and update driver variable
    
 ***Usage***  
-python3 webgopher.py /<inputfile/>
+python3 webgopher.py &lt;inputfile&gt;
